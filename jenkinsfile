@@ -1,0 +1,59 @@
+groovy
+pipeline {
+    agent any
+
+    environment {
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub')
+        DEV_REPO = 'your-dockerhub-username/dev-repo'
+        PROD_REPO = 'your-dockerhub-username/prod-repo'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    def branch = env.GIT_BRANCH
+                    def imageTag = branch == 'dev' ? "${DEV_REPO}:latest" : "${PROD_REPO}:latest"
+
+                    sh "docker build -t ${imageTag} ."
+                }
+            }
+        }
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    def branch = env.GIT_BRANCH
+                    def imageTag = branch == 'dev' ? "${DEV_REPO}:latest" : "${PROD_REPO}:latest"
+
+                    withDockerRegistry([ credentialsId: 'dockerhub', url: '' ]) {
+                        sh "docker push ${imageTag}"
+                    }
+                }
+            }
+        }
+        stage('Deploy') {
+            when {
+                branch 'master'
+            }
+            steps {
+                script {
+                    // Add your deployment steps here, e.g., running a Docker Compose file or Kubernetes deployment
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'The pipeline has been successfully completed.'
+        }
+        failure {
+            echo 'The pipeline has failed.'
+        }
+    }
+}
